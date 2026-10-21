@@ -1,0 +1,670 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  STUDENT
+  RESEARCHER
+  LIBRARIAN
+  ATTENDANT
+  MANAGER
+  ADMIN
+  SYSTEM
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+  INACTIVE
+}
+
+enum DeviceType {
+  KIOSK
+  SMART_DROP
+  HANDHELD
+  GATE_ANTENNA
+  RASPBERRY_PI
+  SENSOR
+  SERVER_CONNECTOR
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+enum BookCopyStatus {
+  AVAILABLE
+  ON_LOAN
+  IN_TRANSIT
+  IN_REPAIR
+  LOST
+  BLOCKED
+}
+
+enum LoanStatus {
+  OPEN
+  OVERDUE
+  CLOSED
+  CANCELLED
+}
+
+enum FineStatus {
+  PENDING
+  WAIVED
+  PAID
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SecurityAlertType {
+  UNAUTHORIZED_EXIT
+  TAG_TAMPER
+  UNKNOWN_TAG
+  DEVICE_OFFLINE
+}
+
+enum IoTEventType {
+  RFID_READ
+  SMART_DROP_DEPOSIT
+  INVENTORY_SCAN
+  GATE_PASSAGE
+  SENSOR_SIGNAL
+  HEARTBEAT
+}
+
+enum IoTEventSource {
+  KIOSK
+  SMART_DROP
+  HANDHELD
+  GATE
+  INTEGRATION
+  UNKNOWN
+}
+
+enum IntegrationSystem {
+  PERGAMUM
+  SOPHIA
+  KOHA
+  CUSTOM
+}
+
+enum IntegrationSyncStatus {
+  SUCCESS
+  FAILED
+  RETRYING
+  SKIPPED
+}
+
+enum InventorySessionStatus {
+  RUNNING
+  PAUSED
+  FINISHED
+  CANCELLED
+}
+
+enum ReceiptChannel {
+  EMAIL
+  SMS
+  APP_PUSH
+  NONE
+}
+
+model Institution {
+  id             String   @id @default(cuid())
+  name           String
+  taxId          String?  @unique
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  libraries      Library[]
+  users          User[]
+  devices        Device[]
+  integrations   IntegrationConnector[]
+  webhooks       WebhookEndpoint[]
+  iotEvents      IoTEvent[]
+  securityAlerts SecurityAlert[]
+  categories     Category[]
+  bookTitles     BookTitle[]
+  bookCopies     BookCopy[]
+  loans          Loan[]
+  fines          Fine[]
+  inventoryRuns  InventorySession[]
+  gateEvents     GateEvent[]
+  notifications  Notification[]
+  analyticsDaily AnalyticsDaily[]
+  analyticsBookDaily AnalyticsBookDaily[]
+
+  @@index([name])
+}
+
+model Library {
+  id             String   @id @default(cuid())
+  institutionId  String
+  code           String
+  name           String
+  timezone       String   @default("America/Sao_Paulo")
+  addressLine    String?
+  city           String?
+  state          String?
+  country        String?  @default("BR")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  users          User[]
+  shelves        Shelf[]
+  devices        Device[]
+  bookCopies     BookCopy[]
+  loans          Loan[]
+  iotEvents      IoTEvent[]
+  inventoryRuns  InventorySession[]
+  gateEvents     GateEvent[]
+  securityAlerts SecurityAlert[]
+  analyticsDaily AnalyticsDaily[]
+
+  @@unique([institutionId, code])
+  @@index([institutionId, name])
+}
+
+model User {
+  id             String      @id @default(cuid())
+  institutionId  String
+  libraryId      String?
+  externalRef    String?
+  role           UserRole
+  status         UserStatus  @default(ACTIVE)
+  fullName       String
+  email          String?
+  phone          String?
+  cardUid        String?
+  biometricHash  String?
+  passwordHash   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  institution    Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library        Library?     @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+
+  loans          Loan[]       @relation("LoanBorrower")
+  handledLoans   Loan[]       @relation("LoanHandledBy")
+  fines          Fine[]
+  notifications  Notification[]
+  inventoryRuns  InventorySession[] @relation("InventoryOperator")
+  waivedFines    Fine[]       @relation("FineWaivedBy")
+  resolvedAlerts SecurityAlert[] @relation("AlertResolvedBy")
+  loanEvents     LoanEvent[]
+
+  @@unique([institutionId, externalRef])
+  @@index([institutionId, role, status])
+  @@index([cardUid])
+}
+
+model Author {
+  id          String   @id @default(cuid())
+  fullName    String
+  createdAt   DateTime @default(now())
+
+  bookAuthors BookAuthor[]
+
+  @@index([fullName])
+}
+
+model Publisher {
+  id          String   @id @default(cuid())
+  name        String
+  createdAt   DateTime @default(now())
+
+  titles      BookTitle[]
+
+  @@index([name])
+}
+
+model Category {
+  id            String   @id @default(cuid())
+  institutionId String
+  name          String
+  createdAt     DateTime @default(now())
+
+  institution   Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  titleLinks    BookTitleCategory[]
+
+  @@unique([institutionId, name])
+}
+
+model BookTitle {
+  id              String   @id @default(cuid())
+  institutionId   String
+  isbn            String?
+  title           String
+  subtitle        String?
+  edition         String?
+  language        String?  @default("pt-BR")
+  publicationYear Int?
+  publisherId     String?
+  coverUrl        String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  institution     Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  publisher       Publisher?  @relation(fields: [publisherId], references: [id], onDelete: SetNull)
+
+  copies          BookCopy[]
+  authors         BookAuthor[]
+  categories      BookTitleCategory[]
+  readingStats    AnalyticsBookDaily[]
+
+  @@index([institutionId, title])
+  @@index([isbn])
+}
+
+model BookAuthor {
+  bookTitleId String
+  authorId    String
+
+  bookTitle   BookTitle @relation(fields: [bookTitleId], references: [id], onDelete: Cascade)
+  author      Author    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@id([bookTitleId, authorId])
+}
+
+model BookTitleCategory {
+  bookTitleId String
+  categoryId  String
+
+  bookTitle   BookTitle @relation(fields: [bookTitleId], references: [id], onDelete: Cascade)
+  category    Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([bookTitleId, categoryId])
+}
+
+model Shelf {
+  id              String   @id @default(cuid())
+  libraryId       String
+  code            String
+  section         String
+  floor           String?
+  x               Float?
+  y               Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  library         Library   @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  bookCopies      BookCopy[]
+  detectedInReads InventoryRead[] @relation("DetectedShelf")
+  expectedInReads InventoryRead[] @relation("ExpectedShelf")
+
+  @@unique([libraryId, code])
+  @@index([libraryId, section])
+}
+
+model BookCopy {
+  id              String         @id @default(cuid())
+  institutionId   String
+  libraryId       String
+  bookTitleId     String
+  shelfId         String?
+  barcode         String?
+  rfidTagEpc      String         @unique
+  rfidTagTid      String?
+  status          BookCopyStatus @default(AVAILABLE)
+  acquisitionDate DateTime?
+  priceCents      Int?
+  lastSeenAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  institution     Institution     @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library         Library         @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  bookTitle       BookTitle       @relation(fields: [bookTitleId], references: [id], onDelete: Cascade)
+  shelf           Shelf?          @relation(fields: [shelfId], references: [id], onDelete: SetNull)
+
+  loans           Loan[]
+  inventoryReads  InventoryRead[]
+  gateEvents      GateEvent[]
+
+  @@index([institutionId, libraryId, status])
+  @@index([libraryId, shelfId])
+}
+
+model Loan {
+  id               String     @id @default(cuid())
+  institutionId    String
+  libraryId        String
+  bookCopyId       String
+  borrowerId       String
+  handledById      String?
+  checkoutDeviceId String?
+  status           LoanStatus @default(OPEN)
+  loanedAt         DateTime   @default(now())
+  dueAt            DateTime
+  returnedAt       DateTime?
+  renewedCount     Int        @default(0)
+  receiptChannel   ReceiptChannel @default(APP_PUSH)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  institution      Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library          Library     @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  bookCopy         BookCopy    @relation(fields: [bookCopyId], references: [id], onDelete: Restrict)
+  borrower         User        @relation("LoanBorrower", fields: [borrowerId], references: [id], onDelete: Restrict)
+  handledBy        User?       @relation("LoanHandledBy", fields: [handledById], references: [id], onDelete: SetNull)
+  checkoutDevice   Device?     @relation("CheckoutDevice", fields: [checkoutDeviceId], references: [id], onDelete: SetNull)
+
+  fine             Fine?
+  events           LoanEvent[]
+
+  @@index([institutionId, borrowerId, status])
+  @@index([libraryId, dueAt, status])
+}
+
+model LoanEvent {
+  id            String   @id @default(cuid())
+  loanId         String
+  eventType      String
+  actorUserId    String?
+  deviceId       String?
+  metadataJson   Json?
+  createdAt      DateTime @default(now())
+
+  loan           Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  actorUser      User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  device         Device?  @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([loanId, createdAt])
+}
+
+model Fine {
+  id             String     @id @default(cuid())
+  institutionId  String
+  loanId         String     @unique
+  userId         String
+  amountCents    Int
+  reason         String
+  status         FineStatus @default(PENDING)
+  generatedAt    DateTime   @default(now())
+  settledAt      DateTime?
+  waivedByUserId String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  loan           Loan        @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  waivedBy       User?       @relation("FineWaivedBy", fields: [waivedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([institutionId, status])
+  @@index([userId, status])
+}
+
+model Device {
+  id              String       @id @default(cuid())
+  institutionId   String
+  libraryId       String?
+  code            String
+  type            DeviceType
+  status          DeviceStatus @default(OFFLINE)
+  locationLabel   String?
+  ipAddress       String?
+  firmwareVersion String?
+  lastHeartbeatAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  institution     Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library         Library?    @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+
+  iotEvents       IoTEvent[]
+  checkoutLoans   Loan[]      @relation("CheckoutDevice")
+  loanEvents      LoanEvent[]
+  inventoryRuns   InventorySession[]
+  gateEvents      GateEvent[]
+  securityAlerts  SecurityAlert[]
+
+  @@unique([institutionId, code])
+  @@index([institutionId, type, status])
+}
+
+model IoTEvent {
+  id              String        @id @default(cuid())
+  institutionId   String
+  libraryId       String?
+  deviceId        String?
+  eventType       IoTEventType
+  source          IoTEventSource
+  epc             String?
+  payloadJson     Json
+  occurredAt      DateTime
+  receivedAt      DateTime      @default(now())
+  processedAt     DateTime?
+  processingError String?
+
+  institution     Institution   @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library         Library?      @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+  device          Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([institutionId, occurredAt])
+  @@index([deviceId, eventType, occurredAt])
+  @@index([epc])
+}
+
+model InventorySession {
+  id               String                 @id @default(cuid())
+  institutionId    String
+  libraryId        String
+  startedByUserId  String
+  handheldDeviceId String?
+  status           InventorySessionStatus @default(RUNNING)
+  startedAt        DateTime               @default(now())
+  endedAt          DateTime?
+  totalExpected    Int                    @default(0)
+  totalRead        Int                    @default(0)
+  misplacedCount   Int                    @default(0)
+  progressPct      Float                  @default(0)
+
+  institution      Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library          Library     @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  startedBy        User        @relation("InventoryOperator", fields: [startedByUserId], references: [id], onDelete: Restrict)
+  handheldDevice   Device?     @relation(fields: [handheldDeviceId], references: [id], onDelete: SetNull)
+
+  reads            InventoryRead[]
+
+  @@index([institutionId, libraryId, status])
+  @@index([startedAt])
+}
+
+model InventoryRead {
+  id                 String   @id @default(cuid())
+  inventorySessionId String
+  bookCopyId         String?
+  epc                String
+  detectedShelfId    String?
+  expectedShelfId    String?
+  isMisplaced        Boolean  @default(false)
+  rssi               Float?
+  readAt             DateTime @default(now())
+
+  inventorySession   InventorySession @relation(fields: [inventorySessionId], references: [id], onDelete: Cascade)
+  bookCopy           BookCopy?        @relation(fields: [bookCopyId], references: [id], onDelete: SetNull)
+  detectedShelf      Shelf?           @relation("DetectedShelf", fields: [detectedShelfId], references: [id], onDelete: SetNull)
+  expectedShelf      Shelf?           @relation("ExpectedShelf", fields: [expectedShelfId], references: [id], onDelete: SetNull)
+
+  @@index([inventorySessionId, readAt])
+  @@index([epc])
+  @@index([isMisplaced])
+}
+
+model GateEvent {
+  id             String   @id @default(cuid())
+  institutionId  String
+  libraryId      String
+  deviceId       String
+  bookCopyId     String?
+  epc            String
+  authorized     Boolean
+  reason         String?
+  occurredAt     DateTime
+  createdAt      DateTime @default(now())
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library        Library     @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+  device         Device      @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  bookCopy       BookCopy?   @relation(fields: [bookCopyId], references: [id], onDelete: SetNull)
+
+  @@index([libraryId, occurredAt])
+  @@index([epc, occurredAt])
+}
+
+model SecurityAlert {
+  id               String            @id @default(cuid())
+  institutionId    String
+  libraryId        String?
+  deviceId         String?
+  type             SecurityAlertType
+  severity         AlertSeverity
+  title            String
+  description      String?
+  relatedEpc       String?
+  resolved         Boolean           @default(false)
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  createdAt        DateTime          @default(now())
+
+  institution      Institution       @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library          Library?          @relation(fields: [libraryId], references: [id], onDelete: SetNull)
+  device           Device?           @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  resolvedBy       User?             @relation("AlertResolvedBy", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([institutionId, resolved, severity])
+  @@index([createdAt])
+}
+
+model Notification {
+  id             String   @id @default(cuid())
+  institutionId  String
+  userId         String
+  title          String
+  body           String
+  readAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model IntegrationConnector {
+  id              String               @id @default(cuid())
+  institutionId   String
+  system          IntegrationSystem
+  name            String
+  baseUrl         String?
+  apiKeyEncrypted String?
+  enabled         Boolean              @default(true)
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  institution     Institution           @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  syncLogs        IntegrationSyncLog[]
+
+  @@unique([institutionId, system, name])
+}
+
+model IntegrationSyncLog {
+  id             String                @id @default(cuid())
+  connectorId    String
+  entityType     String
+  entityId       String
+  direction      String
+  status         IntegrationSyncStatus
+  message        String?
+  payloadJson    Json?
+  createdAt      DateTime              @default(now())
+
+  connector      IntegrationConnector  @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([connectorId, createdAt])
+  @@index([status, createdAt])
+}
+
+model WebhookEndpoint {
+  id             String   @id @default(cuid())
+  institutionId  String
+  name           String
+  url            String
+  secret         String
+  enabled        Boolean  @default(true)
+  eventFilter    Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  deliveries     WebhookDelivery[]
+
+  @@index([institutionId, enabled])
+}
+
+model WebhookDelivery {
+  id              String   @id @default(cuid())
+  webhookId       String
+  eventName       String
+  payloadJson     Json
+  responseCode    Int?
+  responseBody    String?
+  success         Boolean  @default(false)
+  attempts        Int      @default(0)
+  deliveredAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  webhook         WebhookEndpoint @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, createdAt])
+  @@index([success, createdAt])
+}
+
+model AnalyticsDaily {
+  id                 String   @id @default(cuid())
+  institutionId      String
+  libraryId          String
+  date               DateTime
+  sectionHeatmapJson Json?
+  totalLoans         Int      @default(0)
+  totalReturns       Int      @default(0)
+  theftAttempts      Int      @default(0)
+  savedWorkMinutes   Int      @default(0)
+  createdAt          DateTime @default(now())
+
+  institution        Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  library            Library     @relation(fields: [libraryId], references: [id], onDelete: Cascade)
+
+  @@unique([libraryId, date])
+  @@index([institutionId, date])
+}
+
+model AnalyticsBookDaily {
+  id             String   @id @default(cuid())
+  institutionId  String
+  bookTitleId    String
+  date           DateTime
+  loansCount     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  institution    Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  bookTitle      BookTitle   @relation(fields: [bookTitleId], references: [id], onDelete: Cascade)
+
+  @@unique([bookTitleId, date])
+  @@index([institutionId, date])
+}
