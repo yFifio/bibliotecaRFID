@@ -21,10 +21,10 @@ export function SimulatorPage() {
   return (
     <section className="grid" style={{ gap: 20 }}>
       <div className="card">
-        <h2>Simulador IoT/RFID</h2>
+        <h2>Simulador de eventos IoT/RFID</h2>
         <p className="muted">Dispara lote de eventos de totem, smart drop, inventário e portal antifurto.</p>
         <label>
-          Library ID
+          Código da biblioteca
           <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} />
         </label>
         <div style={{ marginTop: 12 }}>

@@ -19,7 +19,7 @@ export function OnboardingPage() {
 
     const existingContext = getSessionContext();
     if (existingContext) {
-      setResponse(`Contexto já salvo no navegador:\nTenant: ${existingContext.tenantId}\nLibrary: ${existingContext.libraryId}`);
+      setResponse(`Contexto já salvo no navegador:\nInstituição: ${existingContext.tenantId}\nBiblioteca: ${existingContext.libraryId}`);
     }
   }, []);
 
@@ -43,9 +43,9 @@ export function OnboardingPage() {
       setResponse(
         [
           result.message,
-          `User ID: ${result.account.userId}`,
-          `Tenant ID: ${result.context.tenantId}`,
-          `Library ID: ${result.context.libraryId}`,
+          `Identificação do usuário: ${result.account.userId}`,
+          `Identificação da instituição: ${result.context.tenantId}`,
+          `Identificação da biblioteca: ${result.context.libraryId}`,
           "Pronto: os IDs já foram salvos automaticamente no navegador."
         ].join("\n")
       );
@@ -63,7 +63,7 @@ export function OnboardingPage() {
         <p className="muted">Preencha este formulário uma vez. O sistema salva os IDs automaticamente.</p>
         <form className="grid" onSubmit={onSubmit}>
           <label>
-            CNPJ / TaxId da Instituição
+            CNPJ ou documento fiscal da instituição
             <input value={institutionTaxId} onChange={(e) => setInstitutionTaxId(e.target.value)} />
           </label>
           <label>

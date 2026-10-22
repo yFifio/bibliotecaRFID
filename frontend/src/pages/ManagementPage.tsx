@@ -14,12 +14,12 @@ export function ManagementPage() {
     <section className="grid" style={{ gap: 20 }}>
       <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "end", gap: 12 }}>
         <div>
-          <h2>Dashboard da Gestão</h2>
+          <h2>Painel de gestão</h2>
           <p className="muted">Mapa de calor, ranking de leitura e alertas antifurto.</p>
         </div>
         <div style={{ minWidth: 220 }}>
           <label>
-            Library ID
+            Código da biblioteca
             <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} />
           </label>
           <button style={{ marginTop: 10 }} onClick={() => refetch()}>Atualizar</button>

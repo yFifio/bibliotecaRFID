@@ -13,3 +13,16 @@ export function checkout(payload: CheckoutPayload) {
     body: payload
   });
 }
+
+export type ReturnPayload = {
+  libraryId: string;
+  epc: string;
+  deviceCode?: string;
+};
+
+export function returnBook(payload: ReturnPayload) {
+  return api<{ borrowerId: string; fineRemoved: boolean }>("/smart-drops/deposit", {
+    method: "POST",
+    body: payload
+  });
+}

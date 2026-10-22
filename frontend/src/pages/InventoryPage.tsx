@@ -37,15 +37,15 @@ export function InventoryPage() {
   return (
     <section className="grid" style={{ gap: 20 }}>
       <div className="card">
-        <h2>App Operacional / Inventário</h2>
+        <h2>Operação de inventário</h2>
         <p className="muted">Modo bastão com progresso em tempo real e radar visual/sonoro.</p>
         <div className="grid grid-2">
           <label>
-            Library ID
+            Código da biblioteca
             <input value={libraryId} onChange={(e) => setLibraryId(e.target.value)} />
           </label>
           <label>
-            Operador (User ID)
+            Identificação do operador
             <input value={operatorId} onChange={(e) => setOperatorId(e.target.value)} placeholder="ID do bibliotecário" />
           </label>
         </div>
@@ -64,7 +64,7 @@ export function InventoryPage() {
             <input value={epc} onChange={(e) => setEpc(e.target.value)} />
           </label>
           <label>
-            Shelf detectada
+            Prateleira detectada
             <input value={shelfId} onChange={(e) => setShelfId(e.target.value)} placeholder="Opcional" />
           </label>
         </div>
